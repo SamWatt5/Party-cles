@@ -1,5 +1,7 @@
 using NUnit.Framework;
 using UnityEngine;
+using System.Collections.Generic;
+using Unity.Mathematics;
 
 public class SandSimulator : MonoBehaviour
 {
@@ -12,20 +14,27 @@ public class SandSimulator : MonoBehaviour
     private const int air = 0;
     public Color airColor = new Color(1f, 1f, 1f, 1f);
     private const int sand = 1;
-    public Color sandColor = new Color(0.9f, 0.8f, 0.5f, 1);
+    public Color sandColor = new Color(0.9f, 0.8f, 0.5f, 1f);
     private const int water = 2;
     public Color waterColor = new Color(0.2f, 0.5f, 0.9f, 0.5f);
+
+    private const int brick = 3;
+    public Color brickColor = new Color(0.5f, 0.2f, 0.2f, 1f);
+
+    public int currParticleType = sand;
+
+    public int DrawSize = 3;
 
     public class Particle
     {
         public int type;
-        public float velocity;
+        public Vector2 velocity;
         public Color color;
 
         public Particle(int type, Color color)
         {
             this.type = type;
-            this.velocity = 0;
+            this.velocity = Vector2.zero;
             this.color = color;
         }
     }
@@ -44,9 +53,9 @@ public class SandSimulator : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-
+        handleKeyboard();
         HandleClick();
-        FallParticles();
+        FallAllParticles();
         UpdateTexture();
     }
 
@@ -81,36 +90,79 @@ public class SandSimulator : MonoBehaviour
 
     private void HandleClick()
     {
-        if (Input.GetMouseButton(0))
+        if (Input.GetMouseButton(0) || Input.GetMouseButton(1))
         {
             Vector2 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-            int x = Mathf.RoundToInt(mousePos.x + gridWidth / 2);
-            int y = Mathf.RoundToInt(mousePos.y + gridHeight / 2);
-            Debug.Log($"X: {x}, Y: {y}");
-            if (IsInBounds(x, y))
+            int mouseX = Mathf.RoundToInt(mousePos.x + gridWidth / 2);
+            int mouseY = Mathf.RoundToInt(mousePos.y + gridHeight / 2);
+            Debug.Log($"X: {mouseX}, Y: {mouseY}");
+
+            int radius = Mathf.RoundToInt(math.floor(DrawSize / 2));
+            for (int x = -radius; x <= radius; x++)
             {
-
-                SpawnParticle(x, y, sand);
+                for (int y = -radius; y <= radius; y++)
+                {
+                    if (IsInBounds(mouseX + x, mouseY + y) && UnityEngine.Random.Range(0f, 1f) < 0.75f)
+                    {
+                        int particleType = Input.GetMouseButton(0) ? currParticleType : air;
+                        SpawnParticle(mouseX + x, mouseY + y, particleType);
+                    }
+                }
             }
-
-        }
-
-        if (Input.GetMouseButton(1))
-        {
-            Vector2 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-            int x = Mathf.RoundToInt(mousePos.x + gridWidth / 2);
-            int y = Mathf.RoundToInt(mousePos.y + gridHeight / 2);
-            Debug.Log($"X: {x}, Y: {y}");
-            if (IsInBounds(x, y))
-            {
-
-                SpawnParticle(x, y, water);
-            }
-
         }
     }
 
-
+    private void handleKeyboard()
+    {
+        if (Input.GetKeyDown(KeyCode.S))
+        {
+            currParticleType = sand;
+        }
+        if (Input.GetKeyDown(KeyCode.W))
+        {
+            currParticleType = water;
+        }
+        if (Input.GetKeyDown(KeyCode.B))
+        {
+            currParticleType = brick;
+        }
+        if (Input.GetKeyDown(KeyCode.Alpha1) || Input.GetKeyDown(KeyCode.Keypad1))
+        {
+            DrawSize = 1;
+        }
+        if (Input.GetKeyDown(KeyCode.Alpha2) || Input.GetKeyDown(KeyCode.Keypad2))
+        {
+            DrawSize = 2;
+        }
+        if (Input.GetKeyDown(KeyCode.Alpha3) || Input.GetKeyDown(KeyCode.Keypad3))
+        {
+            DrawSize = 3;
+        }
+        if (Input.GetKeyDown(KeyCode.Alpha4) || Input.GetKeyDown(KeyCode.Keypad4))
+        {
+            DrawSize = 4;
+        }
+        if (Input.GetKeyDown(KeyCode.Alpha5) || Input.GetKeyDown(KeyCode.Keypad5))
+        {
+            DrawSize = 5;
+        }
+        if (Input.GetKeyDown(KeyCode.Alpha6) || Input.GetKeyDown(KeyCode.Keypad6))
+        {
+            DrawSize = 6;
+        }
+        if (Input.GetKeyDown(KeyCode.Alpha7) || Input.GetKeyDown(KeyCode.Keypad7))
+        {
+            DrawSize = 7;
+        }
+        if (Input.GetKeyDown(KeyCode.Alpha8) || Input.GetKeyDown(KeyCode.Keypad8))
+        {
+            DrawSize = 8;
+        }
+        if (Input.GetKeyDown(KeyCode.Alpha9) || Input.GetKeyDown(KeyCode.Keypad9))
+        {
+            DrawSize = 9;
+        }
+    }
 
     private bool IsInBounds(int x, int y)
     {
@@ -119,8 +171,9 @@ public class SandSimulator : MonoBehaviour
 
     private void SpawnParticle(int x, int y, int particle)
     {
-        Debug.Log($"Spawning particle at ({x}, {y})");
         grid[x, y].type = particle;
+        float H, S, V;
+        Color randColor;
         switch (particle)
         {
             case air:
@@ -128,10 +181,10 @@ public class SandSimulator : MonoBehaviour
                 break;
 
             case sand:
-                float H, S, V;
+
                 Color.RGBToHSV(sandColor, out H, out S, out V);
-                V -= Random.Range(0, 0.2f);
-                Color randColor = Color.HSVToRGB(H, S, V);
+                V -= UnityEngine.Random.Range(0f, 0.2f);
+                randColor = Color.HSVToRGB(H, S, V);
                 grid[x, y].color = randColor;
                 break;
 
@@ -139,57 +192,101 @@ public class SandSimulator : MonoBehaviour
                 grid[x, y].color = waterColor;
                 break;
 
+            case brick:
+                Color.RGBToHSV(brickColor, out H, out S, out V);
+                V -= UnityEngine.Random.Range(0f, 0.2f);
+                randColor = Color.HSVToRGB(H, S, V);
+                grid[x, y].color = randColor;
+                break;
+
             default:
                 break;
         }
     }
 
-    private void FallParticles()
+    private void shuffleList(List<Vector2Int> listToShuffle)
     {
-        for (int y = 1; y < gridHeight; y++)
+        for (int i = 0; i < listToShuffle.Count; i++)
         {
-            for (int x = gridWidth - 1; x >= 0; x--)
+            Vector2Int temp = listToShuffle[i];
+            int randomIndex = UnityEngine.Random.Range(i, listToShuffle.Count);
+            listToShuffle[i] = listToShuffle[randomIndex];
+            listToShuffle[randomIndex] = temp;
+        }
+    }
+
+    private void FallAllParticles()
+    {
+        List<Vector2Int> particlePositions = new List<Vector2Int>();
+        for (int x = 0; x < gridWidth; x++)
+        {
+            for (int y = 0; y < gridHeight; y++)
             {
-                // Check directly below
-                if (CanMoveTo(x, y - 1))
+                if (grid[x, y].type != air)
                 {
-                    SwapParticles(x, y, x, y - 1);
-                }
-                else
-                {
-                    int randDirection = Random.Range(0, 2);
-                    if (randDirection == 0)
-                    {
-                        randDirection = -1;
-                    }
-                    if (CanMoveTo(x + randDirection, y - 1))
-                    {
-                        SwapParticles(x, y, x + randDirection, y - 1);
-                    }
-                    else if (CanMoveTo(x - randDirection, y - 1))
-                    {
-                        SwapParticles(x, y, x - randDirection, y - 1);
-                    }
-                }
-                if (grid[x, y].type == water)
-                {
-                    int randDirection = Random.Range(0, 2);
-                    if (randDirection == 0)
-                    {
-                        randDirection = -1;
-                    }
-                    if (CanMoveTo(x + randDirection, y))
-                    {
-                        SwapParticles(x, y, x + randDirection, y);
-                    }
-                    else if (CanMoveTo(x - randDirection, y))
-                    {
-                        SwapParticles(x, y, x - randDirection, y);
-                    }
+                    particlePositions.Add(new Vector2Int(x, y));
                 }
             }
         }
+
+        shuffleList(particlePositions);
+
+        foreach (Vector2Int pos in particlePositions)
+        {
+            int x = pos.x;
+            int y = pos.y;
+
+            switch (grid[x, y].type)
+            {
+                case sand:
+                    if (CanMoveTo(x, y - 1))
+                    {
+                        SwapParticles(x, y, x, y - 1);
+                    }
+                    else
+                    {
+                        int randSandDirection = UnityEngine.Random.Range(0, 2);
+                        if (randSandDirection == 0)
+                        {
+                            randSandDirection = -1;
+                        }
+                        if (CanMoveTo(x + randSandDirection, y - 1))
+                        {
+                            SwapParticles(x, y, x + randSandDirection, y - 1);
+                        }
+                        else if (CanMoveTo(x - randSandDirection, y - 1))
+                        {
+                            SwapParticles(x, y, x - randSandDirection, y - 1);
+                        }
+                    }
+                    break;
+
+                case water:
+                    int randWaterDirection = UnityEngine.Random.Range(0, 2);
+                    if (randWaterDirection == 0)
+                    {
+                        randWaterDirection = -1;
+                    }
+                    if (CanMoveTo(x, y - 1))
+                    {
+                        SwapParticles(x, y, x, y - 1);
+                    }
+                    else if (CanMoveTo(x + randWaterDirection, y))
+                    {
+                        SwapParticles(x, y, x + randWaterDirection, y);
+                    }
+                    else if (CanMoveTo(x - randWaterDirection, y))
+                    {
+                        SwapParticles(x, y, x - randWaterDirection, y);
+                    }
+                    break;
+
+                default:
+                    break;
+            }
+        }
     }
+
     private bool CanMoveTo(int x, int y)
     {
         return IsInBounds(x, y) && grid[x, y].type == air;

@@ -210,6 +210,9 @@ MonoBehaviour:
   airColor: {r: 0, g: 0, b: 0, a: 1}
   sandColor: {r: 0.9019608, g: 0.7929811, b: 0.5019608, a: 1}
   waterColor: {r: 0.2, g: 0.5, b: 0.9, a: 0.5}
+  brickColor: {r: 0.5, g: 0.2, b: 0.2, a: 1}
+  currParticleType: 1
+  DrawSize: 3
 --- !u!4 &460879192
 Transform:
   m_ObjectHideFlags: 0

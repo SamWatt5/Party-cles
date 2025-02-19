@@ -11,42 +11,27 @@ public class SandSimulator : MonoBehaviour
 
     public Texture2D texture;
 
-    private const int air = 0;
     public Color airColor = new Color(1f, 1f, 1f, 1f);
-    private const int sand = 1;
     public Color sandColor = new Color(0.9f, 0.8f, 0.5f, 1f);
-    private const int water = 2;
     public Color waterColor = new Color(0.2f, 0.5f, 0.9f, 0.5f);
-
-    private const int brick = 3;
     public Color brickColor = new Color(0.5f, 0.2f, 0.2f, 1f);
+
+    private const int air = 0;
+    private const int sand = 1;
+    private const int water = 2;
+    private const int brick = 3;
 
     public int currParticleType = sand;
 
     public int DrawSize = 3;
 
-    public class Particle
-    {
-        public int type;
-        public Vector2 velocity;
-        public Color color;
-
-        public Particle(int type, Color color)
-        {
-            this.type = type;
-            this.velocity = Vector2.zero;
-            this.color = color;
-        }
-    }
-
-    private Particle[,] grid;
-
-
+    private GridManager gridManager;
 
     void Start()
     {
         Application.targetFrameRate = 60;
-        InitializeGrid();
+        gridManager = new GridManager(gridWidth, gridHeight, airColor);
+        InitializeTexture();
         SetCamera();
     }
 
@@ -59,22 +44,27 @@ public class SandSimulator : MonoBehaviour
         UpdateTexture();
     }
 
+    private void InitializeTexture()
+    {
+        texture = new Texture2D(gridWidth, gridHeight);
+        texture.filterMode = FilterMode.Point;
+        GetComponent<SpriteRenderer>().sprite = Sprite.Create(texture, new Rect(0, 0, gridWidth, gridHeight), new Vector2(0.5f, 0.5f), 1f);
+    }
+
     private void InitializeGrid()
     {
         // airColor = new Color(1f, 1f, 1f, 0);
         // sandColor = new Color(0.9f, 0.8f, 0.5f, 1);
 
-        grid = new Particle[gridWidth, gridHeight];
+        gridManager.grid = new Particle[gridWidth, gridHeight];
         for (int x = 0; x < gridWidth; x++)
         {
             for (int y = 0; y < gridHeight; y++)
             {
-                grid[x, y] = new Particle(air, airColor);
+                gridManager.grid[x, y] = new Particle(air, airColor);
             }
         }
-        texture = new Texture2D(gridWidth, gridHeight);
-        texture.filterMode = FilterMode.Point;
-        GetComponent<SpriteRenderer>().sprite = Sprite.Create(texture, new Rect(0, 0, gridWidth, gridHeight), new Vector2(0.5f, 0.5f), 1f);
+
         // GetComponent<SpriteRenderer>().transform.position = new Vector3(gridWidth / 2f, gridHeight / 2f, 0);
     }
 
@@ -102,7 +92,7 @@ public class SandSimulator : MonoBehaviour
             {
                 for (int y = -radius; y <= radius; y++)
                 {
-                    if (IsInBounds(mouseX + x, mouseY + y) && UnityEngine.Random.Range(0f, 1f) < 0.75f)
+                    if (gridManager.IsInBounds(mouseX + x, mouseY + y) && UnityEngine.Random.Range(0f, 1f) <= 1f)
                     {
                         int particleType = Input.GetMouseButton(0) ? currParticleType : air;
                         SpawnParticle(mouseX + x, mouseY + y, particleType);
@@ -114,6 +104,10 @@ public class SandSimulator : MonoBehaviour
 
     private void handleKeyboard()
     {
+        if (Input.GetKeyDown(KeyCode.C))
+        {
+            InitializeGrid();
+        }
         if (Input.GetKeyDown(KeyCode.S))
         {
             currParticleType = sand;
@@ -163,21 +157,16 @@ public class SandSimulator : MonoBehaviour
             DrawSize = 9;
         }
     }
-
-    private bool IsInBounds(int x, int y)
-    {
-        return x >= 0 && x < gridWidth && y >= 0 && y < gridHeight;
-    }
-
     private void SpawnParticle(int x, int y, int particle)
     {
-        grid[x, y].type = particle;
+        gridManager.grid[x, y].type = particle;
+        gridManager.grid[x, y].velocity = Vector2.zero;
         float H, S, V;
         Color randColor;
         switch (particle)
         {
             case air:
-                grid[x, y].color = airColor;
+                gridManager.grid[x, y].color = airColor;
                 break;
 
             case sand:
@@ -185,18 +174,21 @@ public class SandSimulator : MonoBehaviour
                 Color.RGBToHSV(sandColor, out H, out S, out V);
                 V -= UnityEngine.Random.Range(0f, 0.2f);
                 randColor = Color.HSVToRGB(H, S, V);
-                grid[x, y].color = randColor;
+                gridManager.grid[x, y].color = randColor;
                 break;
 
             case water:
-                grid[x, y].color = waterColor;
+                Color.RGBToHSV(waterColor, out H, out S, out V);
+                V -= UnityEngine.Random.Range(0f, 0.2f);
+                randColor = Color.HSVToRGB(H, S, V);
+                gridManager.grid[x, y].color = randColor;
                 break;
 
             case brick:
                 Color.RGBToHSV(brickColor, out H, out S, out V);
                 V -= UnityEngine.Random.Range(0f, 0.2f);
                 randColor = Color.HSVToRGB(H, S, V);
-                grid[x, y].color = randColor;
+                gridManager.grid[x, y].color = randColor;
                 break;
 
             default:
@@ -222,7 +214,7 @@ public class SandSimulator : MonoBehaviour
         {
             for (int y = 0; y < gridHeight; y++)
             {
-                if (grid[x, y].type != air)
+                if (gridManager.grid[x, y].type != air)
                 {
                     particlePositions.Add(new Vector2Int(x, y));
                 }
@@ -236,67 +228,156 @@ public class SandSimulator : MonoBehaviour
             int x = pos.x;
             int y = pos.y;
 
-            switch (grid[x, y].type)
+            Particle particle = gridManager.grid[x, y];
+
+            switch (particle.type)
             {
                 case sand:
-                    if (CanMoveTo(x, y - 1))
-                    {
-                        SwapParticles(x, y, x, y - 1);
-                    }
-                    else
-                    {
-                        int randSandDirection = UnityEngine.Random.Range(0, 2);
-                        if (randSandDirection == 0)
-                        {
-                            randSandDirection = -1;
-                        }
-                        if (CanMoveTo(x + randSandDirection, y - 1))
-                        {
-                            SwapParticles(x, y, x + randSandDirection, y - 1);
-                        }
-                        else if (CanMoveTo(x - randSandDirection, y - 1))
-                        {
-                            SwapParticles(x, y, x - randSandDirection, y - 1);
-                        }
-                    }
+                    UpdateParticleVelocity(particle, new Vector2(0, -1));
+                    MoveParticle(x, y, particle);
                     break;
 
                 case water:
-                    int randWaterDirection = UnityEngine.Random.Range(0, 2);
-                    if (randWaterDirection == 0)
-                    {
-                        randWaterDirection = -1;
-                    }
-                    if (CanMoveTo(x, y - 1))
-                    {
-                        SwapParticles(x, y, x, y - 1);
-                    }
-                    else if (CanMoveTo(x + randWaterDirection, y))
-                    {
-                        SwapParticles(x, y, x + randWaterDirection, y);
-                    }
-                    else if (CanMoveTo(x - randWaterDirection, y))
-                    {
-                        SwapParticles(x, y, x - randWaterDirection, y);
-                    }
-                    break;
-
-                default:
+                    UpdateParticleVelocity(particle, new Vector2(0, -1));
+                    MoveWaterParticle(x, y, particle);
                     break;
             }
         }
     }
 
-    private bool CanMoveTo(int x, int y)
+    private void UpdateParticleVelocity(Particle particle, Vector2 gravity)
     {
-        return IsInBounds(x, y) && grid[x, y].type == air;
+        particle.velocity += gravity * 1f;
+        particle.velocity = Vector2.ClampMagnitude(particle.velocity, 10f); // Limit the maximum velocity
+        // Debug.Log($"Updated Velocity: {particle.velocity}");
     }
 
-    private void SwapParticles(int x1, int y1, int x2, int y2)
+    private void MoveParticle(int x, int y, Particle particle)
     {
-        Particle temp = grid[x1, y1];
-        grid[x1, y1] = grid[x2, y2];
-        grid[x2, y2] = temp;
+
+        // Compute the intended final position based on velocity
+        Vector2 finalPosF = new Vector2(x, y) + particle.velocity;
+        int targetX = Mathf.RoundToInt(finalPosF.x);
+        int targetY = Mathf.RoundToInt(finalPosF.y);
+
+        // Determine how many steps to check based on the greater difference
+        int steps = Mathf.Max(Mathf.Abs(targetX - x), Mathf.Abs(targetY - y));
+
+        // Start at current position
+        Vector2Int lastValidPos = new Vector2Int(x, y);
+
+        // Check each intermediate step along the straight line path
+        for (int i = 1; i <= steps; i++)
+        {
+            int checkX = x + Mathf.RoundToInt((targetX - x) * (i / (float)steps));
+            int checkY = y + Mathf.RoundToInt((targetY - y) * (i / (float)steps));
+
+            if (gridManager.CanMoveTo(checkX, checkY, particle.type))
+            {
+                lastValidPos = new Vector2Int(checkX, checkY);
+            }
+            else
+            {
+                // Stop once we hit an obstacle
+                break;
+            }
+        }
+
+        // Only swap if we moved at least one cell
+        if (lastValidPos.x != x || lastValidPos.y != y)
+        {
+            //Try moving based on velocity first
+            if (gridManager.CanMoveTo(lastValidPos.x, lastValidPos.y, particle.type))
+            {
+                gridManager.SwapParticles(x, y, lastValidPos.x, lastValidPos.y);
+            }
+        }
+        else
+        {
+            if (gridManager.CanMoveTo(x, y - 1, particle.type))
+            {
+                gridManager.SwapParticles(x, y, x, y - 1);
+            }
+            else
+            {
+                int randDir = UnityEngine.Random.Range(0, 2) == 0 ? -1 : 1;
+                if (gridManager.CanMoveTo(x + randDir, y - 1, particle.type))
+                {
+                    gridManager.SwapParticles(x, y, x + randDir, y - 1);
+                }
+                else
+                {
+                    // If no movement is possible, reset velocity
+                    particle.velocity = Vector2.zero;
+                }
+            }
+        }
+        // }
+    }
+
+    private void MoveWaterParticle(int x, int y, Particle particle)
+    {
+        // Compute the intended final position based on velocity
+        Vector2 finalPosF = new Vector2(x, y) + particle.velocity;
+        int targetX = Mathf.RoundToInt(finalPosF.x);
+        int targetY = Mathf.RoundToInt(finalPosF.y);
+
+        // Determine how many steps to check based on the greater difference
+        int steps = Mathf.Max(Mathf.Abs(targetX - x), Mathf.Abs(targetY - y));
+
+        // Start at current position
+        Vector2Int lastValidPos = new Vector2Int(x, y);
+
+        // Check each intermediate step along the straight line path
+        for (int i = 1; i <= steps; i++)
+        {
+            int checkX = x + Mathf.RoundToInt((targetX - x) * (i / (float)steps));
+            int checkY = y + Mathf.RoundToInt((targetY - y) * (i / (float)steps));
+
+            if (gridManager.CanMoveTo(checkX, checkY, particle.type))
+            {
+                lastValidPos = new Vector2Int(checkX, checkY);
+            }
+            else
+            {
+                // Stop once we hit an obstacle
+                break;
+            }
+        }
+
+        // Only swap if we moved at least one cell
+        if (lastValidPos.x != x || lastValidPos.y != y)
+        {
+            // Try moving based on the intermediate steps result first
+            if (gridManager.CanMoveTo(lastValidPos.x, lastValidPos.y, particle.type))
+            {
+                gridManager.SwapParticles(x, y, lastValidPos.x, lastValidPos.y);
+                return;
+            }
+        }
+
+        // Fallback: if direct below is available, move down
+        if (gridManager.CanMoveTo(x, y - 1, particle.type))
+        {
+            gridManager.SwapParticles(x, y, x, y - 1);
+            return;
+        }
+
+        // Fallback water: try moving left or right directly
+        int randDir = UnityEngine.Random.Range(0, 2) == 0 ? -1 : 1;
+        if (gridManager.CanMoveTo(x + randDir, y, particle.type))
+        {
+            gridManager.SwapParticles(x, y, x + randDir, y);
+        }
+        else if (gridManager.CanMoveTo(x - randDir, y, particle.type))
+        {
+            gridManager.SwapParticles(x, y, x - randDir, y);
+        }
+        else
+        {
+            // No movement possible: reset velocity with new random values
+            particle.velocity = new Vector2(UnityEngine.Random.Range(-1f, 1f), UnityEngine.Random.Range(0.5f, 1.5f));
+        }
     }
 
     private void UpdateTexture()
@@ -305,7 +386,7 @@ public class SandSimulator : MonoBehaviour
         {
             for (int y = 0; y < gridHeight; y++)
             {
-                texture.SetPixel(x, y, grid[x, y].color);
+                texture.SetPixel(x, y, gridManager.grid[x, y].color);
             }
         }
         texture.Apply();
